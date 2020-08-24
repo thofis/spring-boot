@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Member predicate that matches based on {@code include} and {@code exclude} sets.
@@ -43,7 +44,7 @@ class IncludeExcludeGroupMemberPredicate implements Predicate<String> {
 	}
 
 	private boolean isIncluded(String name) {
-		return this.include.contains("*") || this.include.contains(clean(name));
+		return this.include.isEmpty() || this.include.contains("*") || this.include.contains(clean(name));
 	}
 
 	private boolean isExcluded(String name) {
@@ -54,12 +55,12 @@ class IncludeExcludeGroupMemberPredicate implements Predicate<String> {
 		if (names == null) {
 			return Collections.emptySet();
 		}
-		Set<String> cleaned = new LinkedHashSet<>(names);
+		Set<String> cleaned = names.stream().map(this::clean).collect(Collectors.toCollection(LinkedHashSet::new));
 		return Collections.unmodifiableSet(cleaned);
 	}
 
 	private String clean(String name) {
-		return name.trim().toLowerCase();
+		return name.trim();
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,13 @@ package org.springframework.boot.logging;
 import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
+import org.springframework.boot.logging.java.JavaLoggingSystem;
+import org.springframework.boot.logging.log4j2.Log4J2LoggingSystem;
+import org.springframework.boot.logging.logback.LogbackLoggingSystem;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 
@@ -56,15 +58,20 @@ public abstract class LoggingSystem {
 	 */
 	public static final String ROOT_LOGGER_NAME = "ROOT";
 
-	private static final Map<String, String> SYSTEMS;
+	private static final Function<ClassLoader, LoggingSystem> SYSTEM_FACTORY = getSystemFactory();
 
-	static {
-		Map<String, String> systems = new LinkedHashMap<>();
-		systems.put("ch.qos.logback.core.Appender", "org.springframework.boot.logging.logback.LogbackLoggingSystem");
-		systems.put("org.apache.logging.log4j.core.impl.Log4jContextFactory",
-				"org.springframework.boot.logging.log4j2.Log4J2LoggingSystem");
-		systems.put("java.util.logging.LogManager", "org.springframework.boot.logging.java.JavaLoggingSystem");
-		SYSTEMS = Collections.unmodifiableMap(systems);
+	private static Function<ClassLoader, LoggingSystem> getSystemFactory() {
+		ClassLoader classLoader = LoggingSystem.class.getClassLoader();
+		if (ClassUtils.isPresent("ch.qos.logback.core.Appender", classLoader)) {
+			return LogbackLoggingSystem::new;
+		}
+		if (ClassUtils.isPresent("org.apache.logging.log4j.core.impl.Log4jContextFactory", classLoader)) {
+			return Log4J2LoggingSystem::new;
+		}
+		if (ClassUtils.isPresent("java.util.logging.LogManager", classLoader)) {
+			return JavaLoggingSystem::new;
+		}
+		throw new IllegalStateException("No suitable logging system located");
 	}
 
 	/**
@@ -155,9 +162,7 @@ public abstract class LoggingSystem {
 			}
 			return get(classLoader, loggingSystem);
 		}
-		return SYSTEMS.entrySet().stream().filter((entry) -> ClassUtils.isPresent(entry.getKey(), classLoader))
-				.map((entry) -> get(classLoader, entry.getValue())).findFirst()
-				.orElseThrow(() -> new IllegalStateException("No suitable logging system located"));
+		return SYSTEM_FACTORY.apply(classLoader);
 	}
 
 	private static LoggingSystem get(ClassLoader classLoader, String loggingSystemClass) {

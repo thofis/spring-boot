@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,6 +76,11 @@ public class RedisProperties {
 	 */
 	private String clientName;
 
+	/**
+	 * Type of client to use. By default, auto-detected according to the classpath.
+	 */
+	private ClientType clientType;
+
 	private Sentinel sentinel;
 
 	private Cluster cluster;
@@ -148,6 +153,14 @@ public class RedisProperties {
 		this.clientName = clientName;
 	}
 
+	public ClientType getClientType() {
+		return this.clientType;
+	}
+
+	public void setClientType(ClientType clientType) {
+		this.clientType = clientType;
+	}
+
 	public Sentinel getSentinel() {
 		return this.sentinel;
 	}
@@ -170,6 +183,23 @@ public class RedisProperties {
 
 	public Lettuce getLettuce() {
 		return this.lettuce;
+	}
+
+	/**
+	 * Type of Redis client to use.
+	 */
+	public enum ClientType {
+
+		/**
+		 * Use the Lettuce redis client.
+		 */
+		LETTUCE,
+
+		/**
+		 * Use the Jedis redis client.
+		 */
+		JEDIS
+
 	}
 
 	/**
@@ -301,6 +331,11 @@ public class RedisProperties {
 		 */
 		private List<String> nodes;
 
+		/**
+		 * Password for authenticating with sentinel(s).
+		 */
+		private String password;
+
 		public String getMaster() {
 			return this.master;
 		}
@@ -315,6 +350,14 @@ public class RedisProperties {
 
 		public void setNodes(List<String> nodes) {
 			this.nodes = nodes;
+		}
+
+		public String getPassword() {
+			return this.password;
+		}
+
+		public void setPassword(String password) {
+			this.password = password;
 		}
 
 	}
@@ -354,6 +397,8 @@ public class RedisProperties {
 		 */
 		private Pool pool;
 
+		private final Cluster cluster = new Cluster();
+
 		public Duration getShutdownTimeout() {
 			return this.shutdownTimeout;
 		}
@@ -368,6 +413,66 @@ public class RedisProperties {
 
 		public void setPool(Pool pool) {
 			this.pool = pool;
+		}
+
+		public Cluster getCluster() {
+			return this.cluster;
+		}
+
+		public static class Cluster {
+
+			private final Refresh refresh = new Refresh();
+
+			public Refresh getRefresh() {
+				return this.refresh;
+			}
+
+			public static class Refresh {
+
+				/**
+				 * Whether to discover and query all cluster nodes for obtaining the
+				 * cluster topology. When set to false, only the initial seed nodes are
+				 * used as sources for topology discovery.
+				 */
+				private boolean dynamicRefreshSources = true;
+
+				/**
+				 * Cluster topology refresh period.
+				 */
+				private Duration period;
+
+				/**
+				 * Whether adaptive topology refreshing using all available refresh
+				 * triggers should be used.
+				 */
+				private boolean adaptive;
+
+				public boolean isDynamicRefreshSources() {
+					return this.dynamicRefreshSources;
+				}
+
+				public void setDynamicRefreshSources(boolean dynamicRefreshSources) {
+					this.dynamicRefreshSources = dynamicRefreshSources;
+				}
+
+				public Duration getPeriod() {
+					return this.period;
+				}
+
+				public void setPeriod(Duration period) {
+					this.period = period;
+				}
+
+				public boolean isAdaptive() {
+					return this.adaptive;
+				}
+
+				public void setAdaptive(boolean adaptive) {
+					this.adaptive = adaptive;
+				}
+
+			}
+
 		}
 
 	}

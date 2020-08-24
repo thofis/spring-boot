@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,12 +31,10 @@ import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoCon
 import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
 import org.springframework.boot.autoconfigure.info.ProjectInfoAutoConfiguration;
 import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
-import org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLoggingListener;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.web.client.RestTemplateAutoConfiguration;
 import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration;
 import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
-import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CloudFoundryInfoEndpointWebExtensionTests {
 
-	private WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
+	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
 			.withPropertyValues("VCAP_APPLICATION={}")
 			.withConfiguration(AutoConfigurations.of(SecurityAutoConfiguration.class, WebMvcAutoConfiguration.class,
 					JacksonAutoConfiguration.class, DispatcherServletAutoConfiguration.class,
@@ -62,14 +60,13 @@ class CloudFoundryInfoEndpointWebExtensionTests {
 	@Test
 	@SuppressWarnings("unchecked")
 	void gitFullDetailsAlwaysPresent() {
-		this.contextRunner.withInitializer(new ConditionEvaluationReportLoggingListener(LogLevel.INFO))
-				.run((context) -> {
-					CloudFoundryInfoEndpointWebExtension extension = context
-							.getBean(CloudFoundryInfoEndpointWebExtension.class);
-					Map<String, Object> git = (Map<String, Object>) extension.info().get("git");
-					Map<String, Object> commit = (Map<String, Object>) git.get("commit");
-					assertThat(commit).hasSize(4);
-				});
+		this.contextRunner.run((context) -> {
+			CloudFoundryInfoEndpointWebExtension extension = context
+					.getBean(CloudFoundryInfoEndpointWebExtension.class);
+			Map<String, Object> git = (Map<String, Object>) extension.info().get("git");
+			Map<String, Object> commit = (Map<String, Object>) git.get("commit");
+			assertThat(commit).hasSize(4);
+		});
 	}
 
 }

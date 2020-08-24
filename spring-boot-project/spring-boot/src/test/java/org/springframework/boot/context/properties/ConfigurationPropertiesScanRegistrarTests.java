@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package org.springframework.boot.context.properties;
 
 import java.io.IOException;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -39,17 +38,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ConfigurationPropertiesScanRegistrarTests {
 
-	private final ConfigurationPropertiesScanRegistrar registrar = new ConfigurationPropertiesScanRegistrar();
-
 	private final DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
 
-	@BeforeEach
-	void setup() {
-		this.registrar.setEnvironment(new MockEnvironment());
-	}
+	private final ConfigurationPropertiesScanRegistrar registrar = new ConfigurationPropertiesScanRegistrar(
+			new MockEnvironment(), null);
 
 	@Test
-	void registerBeanDefintionsShouldScanForConfigurationProperties() throws IOException {
+	void registerBeanDefinitionsShouldScanForConfigurationProperties() throws IOException {
 		this.registrar.registerBeanDefinitions(getAnnotationMetadata(ConfigurationPropertiesScanConfiguration.class),
 				this.beanFactory);
 		BeanDefinition bingDefinition = this.beanFactory.getBeanDefinition(
@@ -60,7 +55,7 @@ class ConfigurationPropertiesScanRegistrarTests {
 				"bar-org.springframework.boot.context.properties.scan.valid.ConfigurationPropertiesScanConfiguration$BarProperties");
 		assertThat(bingDefinition).isExactlyInstanceOf(GenericBeanDefinition.class);
 		assertThat(fooDefinition).isExactlyInstanceOf(GenericBeanDefinition.class);
-		assertThat(barDefinition).isExactlyInstanceOf(ConfigurationPropertiesBeanDefinition.class);
+		assertThat(barDefinition).isExactlyInstanceOf(ConfigurationPropertiesValueObjectBeanDefinition.class);
 	}
 
 	@Test
@@ -75,7 +70,7 @@ class ConfigurationPropertiesScanRegistrarTests {
 	}
 
 	@Test
-	void scanWhenBasePackagesAndBasePackcageClassesProvidedShouldUseThat() throws IOException {
+	void scanWhenBasePackagesAndBasePackageClassesProvidedShouldUseThat() throws IOException {
 		DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
 		beanFactory.setAllowBeanDefinitionOverriding(false);
 		this.registrar.registerBeanDefinitions(
@@ -92,7 +87,7 @@ class ConfigurationPropertiesScanRegistrarTests {
 				"b.second-org.springframework.boot.context.properties.scan.valid.b.BScanConfiguration$BSecondProperties");
 		assertThat(aDefinition).isExactlyInstanceOf(GenericBeanDefinition.class);
 		// Constructor injection
-		assertThat(bFirstDefinition).isExactlyInstanceOf(ConfigurationPropertiesBeanDefinition.class);
+		assertThat(bFirstDefinition).isExactlyInstanceOf(ConfigurationPropertiesValueObjectBeanDefinition.class);
 		// Post-processing injection
 		assertThat(bSecondDefinition).isExactlyInstanceOf(GenericBeanDefinition.class);
 	}

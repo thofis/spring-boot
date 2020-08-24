@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.springframework.boot.actuate.autoconfigure.health.HealthContributorAu
 import org.springframework.boot.actuate.autoconfigure.health.HealthEndpointAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.web.server.ManagementContextAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.web.servlet.ServletManagementContextAutoConfiguration;
+import org.springframework.boot.actuate.endpoint.http.ApiVersion;
 import org.springframework.boot.actuate.health.CompositeHealth;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthComponent;
@@ -47,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CloudFoundryHealthEndpointWebExtensionTests {
 
-	private WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
+	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
 			.withPropertyValues("VCAP_APPLICATION={}")
 			.withConfiguration(AutoConfigurations.of(SecurityAutoConfiguration.class, WebMvcAutoConfiguration.class,
 					JacksonAutoConfiguration.class, DispatcherServletAutoConfiguration.class,
@@ -59,12 +60,12 @@ class CloudFoundryHealthEndpointWebExtensionTests {
 			.withUserConfiguration(TestHealthIndicator.class);
 
 	@Test
-	void healthDetailsAlwaysPresent() {
+	void healthComponentsAlwaysPresent() {
 		this.contextRunner.run((context) -> {
 			CloudFoundryHealthEndpointWebExtension extension = context
 					.getBean(CloudFoundryHealthEndpointWebExtension.class);
-			HealthComponent body = extension.health().getBody();
-			HealthComponent health = ((CompositeHealth) body).getDetails().entrySet().iterator().next().getValue();
+			HealthComponent body = extension.health(ApiVersion.V3).getBody();
+			HealthComponent health = ((CompositeHealth) body).getComponents().entrySet().iterator().next().getValue();
 			assertThat(((Health) health).getDetails()).containsEntry("spring", "boot");
 		});
 	}

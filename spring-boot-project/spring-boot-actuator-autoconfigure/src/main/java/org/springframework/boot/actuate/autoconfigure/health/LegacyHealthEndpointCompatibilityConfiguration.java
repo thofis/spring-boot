@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,48 +16,59 @@
 
 package org.springframework.boot.actuate.autoconfigure.health;
 
-import org.springframework.boot.actuate.health.HealthAggregator;
-import org.springframework.boot.actuate.health.HealthStatusHttpMapper;
-import org.springframework.boot.actuate.health.OrderedHealthAggregator;
+import reactor.core.publisher.Mono;
+
+import org.springframework.boot.actuate.health.HealthContributorRegistry;
+import org.springframework.boot.actuate.health.ReactiveHealthContributorRegistry;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.CollectionUtils;
 
 /**
  * Configuration to adapt legacy deprecated health endpoint classes and interfaces.
  *
  * @author Phillip Webb
+ * @author Scott Frederick
  * @see HealthEndpointAutoConfiguration
  */
 @Configuration(proxyBeanMethods = false)
 @SuppressWarnings("deprecation")
+@EnableConfigurationProperties(org.springframework.boot.actuate.autoconfigure.health.HealthIndicatorProperties.class)
 class LegacyHealthEndpointCompatibilityConfiguration {
 
 	@Bean
-	@ConfigurationProperties(prefix = "management.health.status")
-	HealthIndicatorProperties healthIndicatorProperties(HealthEndpointProperties healthEndpointProperties) {
-		return new HealthIndicatorProperties(healthEndpointProperties);
-	}
-
-	@Bean
 	@ConditionalOnMissingBean
-	HealthAggregator healthAggregator(HealthIndicatorProperties healthIndicatorProperties) {
-		OrderedHealthAggregator aggregator = new OrderedHealthAggregator();
-		if (healthIndicatorProperties.getOrder() != null) {
+	org.springframework.boot.actuate.health.HealthAggregator healthAggregator(
+			HealthIndicatorProperties healthIndicatorProperties) {
+		org.springframework.boot.actuate.health.OrderedHealthAggregator aggregator = new org.springframework.boot.actuate.health.OrderedHealthAggregator();
+		if (!CollectionUtils.isEmpty(healthIndicatorProperties.getOrder())) {
 			aggregator.setStatusOrder(healthIndicatorProperties.getOrder());
 		}
 		return aggregator;
 	}
 
 	@Bean
-	@ConditionalOnMissingBean
-	HealthStatusHttpMapper healthStatusHttpMapper(HealthIndicatorProperties healthIndicatorProperties) {
-		HealthStatusHttpMapper mapper = new HealthStatusHttpMapper();
-		if (healthIndicatorProperties.getHttpMapping() != null) {
-			mapper.setStatusMapping(healthIndicatorProperties.getHttpMapping());
+	@ConditionalOnMissingBean(org.springframework.boot.actuate.health.HealthIndicatorRegistry.class)
+	HealthContributorRegistryHealthIndicatorRegistryAdapter healthIndicatorRegistry(
+			HealthContributorRegistry healthContributorRegistry) {
+		return new HealthContributorRegistryHealthIndicatorRegistryAdapter(healthContributorRegistry);
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnClass(Mono.class)
+	static class LegacyReactiveHealthEndpointCompatibilityConfiguration {
+
+		@Bean
+		@ConditionalOnMissingBean(org.springframework.boot.actuate.health.ReactiveHealthIndicatorRegistry.class)
+		ReactiveHealthContributorRegistryReactiveHealthIndicatorRegistryAdapter reactiveHealthIndicatorRegistry(
+				ReactiveHealthContributorRegistry reactiveHealthContributorRegistry) {
+			return new ReactiveHealthContributorRegistryReactiveHealthIndicatorRegistryAdapter(
+					reactiveHealthContributorRegistry);
 		}
-		return mapper;
+
 	}
 
 }

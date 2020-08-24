@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
+import org.springframework.core.log.LogMessage;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.ResourceUtils;
@@ -134,13 +135,6 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 	 * @since 2.2.0
 	 */
 	public static final String LOGGER_GROUPS_BEAN_NAME = "springBootLoggerGroups";
-
-	/**
-	 * The name of the {@link LogFile} bean.
-	 * @deprecated since 2.2.0 in favor of {@link #LOG_FILE_BEAN_NAME}
-	 */
-	@Deprecated
-	public static final String LOGFILE_BEAN_NAME = LOG_FILE_BEAN_NAME;
 
 	private static final Map<String, List<String>> DEFAULT_GROUP_LOGGERS;
 	static {
@@ -307,7 +301,7 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 
 	private void initializeSystem(ConfigurableEnvironment environment, LoggingSystem system, LogFile logFile) {
 		LoggingInitializationContext initializationContext = new LoggingInitializationContext(environment);
-		String logConfig = environment.getProperty(CONFIG_PROPERTY);
+		String logConfig = StringUtils.trimWhitespace(environment.getProperty(CONFIG_PROPERTY));
 		if (ignoreLogConfig(logConfig)) {
 			system.initialize(initializationContext, null, logFile);
 		}
@@ -332,7 +326,7 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 	private void initializeFinalLoggingLevels(ConfigurableEnvironment environment, LoggingSystem system) {
 		bindLoggerGroups(environment);
 		if (this.springBootLogging != null) {
-			initializeLogLevel(system, this.springBootLogging);
+			initializeSpringBootLogging(system, this.springBootLogging);
 		}
 		setLogLevels(system, environment);
 	}
@@ -342,19 +336,6 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 			Binder binder = Binder.get(environment);
 			binder.bind(LOGGING_GROUP, STRING_STRINGS_MAP).ifBound(this.loggerGroups::putAll);
 		}
-	}
-
-	/**
-	 * Initialize loggers based on the {@link #setSpringBootLogging(LogLevel)
-	 * springBootLogging} setting.
-	 * @param system the logging system
-	 * @param springBootLogging the spring boot logging level requested
-	 * @deprecated since 2.2.0 in favor of
-	 * {@link #initializeSpringBootLogging(LoggingSystem, LogLevel)}
-	 */
-	@Deprecated
-	protected void initializeLogLevel(LoggingSystem system, LogLevel springBootLogging) {
-		initializeSpringBootLogging(system, springBootLogging);
 	}
 
 	/**
@@ -369,20 +350,6 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 		BiConsumer<String, LogLevel> configurer = getLogLevelConfigurer(system);
 		SPRING_BOOT_LOGGING_LOGGERS.getOrDefault(springBootLogging, Collections.emptyList())
 				.forEach((name) -> configureLogLevel(name, springBootLogging, configurer));
-	}
-
-	/**
-	 * Set logging levels based on relevant {@link Environment} properties.
-	 * @param system the logging system
-	 * @param environment the environment
-	 * @deprecated since 2.2.0 in favor of
-	 * {@link #setLogLevels(LoggingSystem, ConfigurableEnvironment)}
-	 */
-	@Deprecated
-	protected void setLogLevels(LoggingSystem system, Environment environment) {
-		if (environment instanceof ConfigurableEnvironment) {
-			setLogLevels(system, (ConfigurableEnvironment) environment);
-		}
 	}
 
 	/**
@@ -416,7 +383,7 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 				system.setLogLevel(name, level);
 			}
 			catch (RuntimeException ex) {
-				this.logger.error("Cannot set level '" + level + "' for '" + name + "'");
+				this.logger.error(LogMessage.format("Cannot set level '%s' for '%s'", level, name));
 			}
 		};
 	}

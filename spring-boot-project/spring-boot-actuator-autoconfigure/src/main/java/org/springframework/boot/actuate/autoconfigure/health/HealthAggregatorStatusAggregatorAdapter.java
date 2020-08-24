@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.boot.actuate.health.Health;
-import org.springframework.boot.actuate.health.HealthAggregator;
 import org.springframework.boot.actuate.health.Status;
 import org.springframework.boot.actuate.health.StatusAggregator;
 
 /**
- * Adapter class to convert a legacy {@link HealthAggregator} to a
+ * Adapter class to convert a legacy
+ * {@link org.springframework.boot.actuate.health.HealthAggregator} to a
  * {@link StatusAggregator}.
  *
  * @author Phillip Webb
@@ -34,16 +34,16 @@ import org.springframework.boot.actuate.health.StatusAggregator;
 @SuppressWarnings("deprecation")
 class HealthAggregatorStatusAggregatorAdapter implements StatusAggregator {
 
-	private HealthAggregator healthAggregator;
+	private org.springframework.boot.actuate.health.HealthAggregator healthAggregator;
 
-	HealthAggregatorStatusAggregatorAdapter(HealthAggregator healthAggregator) {
+	HealthAggregatorStatusAggregatorAdapter(org.springframework.boot.actuate.health.HealthAggregator healthAggregator) {
 		this.healthAggregator = healthAggregator;
 	}
 
 	@Override
 	public Status getAggregateStatus(Set<Status> statuses) {
 		int index = 0;
-		Map<String, Health> healths = new LinkedHashMap<String, Health>();
+		Map<String, Health> healths = new LinkedHashMap<>();
 		for (Status status : statuses) {
 			index++;
 			healths.put("health" + index, asHealth(status));

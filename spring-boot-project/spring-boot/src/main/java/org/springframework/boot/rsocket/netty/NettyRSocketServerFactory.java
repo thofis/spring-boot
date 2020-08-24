@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import io.rsocket.RSocketFactory;
 import io.rsocket.SocketAcceptor;
 import io.rsocket.transport.ServerTransport;
 import io.rsocket.transport.netty.server.CloseableChannel;
@@ -36,8 +35,8 @@ import reactor.netty.tcp.TcpServer;
 
 import org.springframework.boot.rsocket.server.ConfigurableRSocketServerFactory;
 import org.springframework.boot.rsocket.server.RSocketServer;
+import org.springframework.boot.rsocket.server.RSocketServerCustomizer;
 import org.springframework.boot.rsocket.server.RSocketServerFactory;
-import org.springframework.boot.rsocket.server.ServerRSocketFactoryCustomizer;
 import org.springframework.http.client.reactive.ReactorResourceFactory;
 import org.springframework.util.Assert;
 
@@ -54,13 +53,13 @@ public class NettyRSocketServerFactory implements RSocketServerFactory, Configur
 
 	private InetAddress address;
 
-	private RSocketServer.TRANSPORT transport = RSocketServer.TRANSPORT.TCP;
+	private RSocketServer.Transport transport = RSocketServer.Transport.TCP;
 
 	private ReactorResourceFactory resourceFactory;
 
 	private Duration lifecycleTimeout;
 
-	private List<ServerRSocketFactoryCustomizer> serverCustomizers = new ArrayList<>();
+	private List<RSocketServerCustomizer> rSocketServerCustomizers = new ArrayList<>();
 
 	@Override
 	public void setPort(int port) {
@@ -73,7 +72,7 @@ public class NettyRSocketServerFactory implements RSocketServerFactory, Configur
 	}
 
 	@Override
-	public void setTransport(RSocketServer.TRANSPORT transport) {
+	public void setTransport(RSocketServer.Transport transport) {
 		this.transport = transport;
 	}
 
@@ -86,23 +85,26 @@ public class NettyRSocketServerFactory implements RSocketServerFactory, Configur
 	}
 
 	/**
-	 * Set {@link ServerRSocketFactoryCustomizer}s that should be applied to the RSocket
-	 * server builder. Calling this method will replace any existing customizers.
-	 * @param serverCustomizers the customizers to set
+	 * Set {@link RSocketServerCustomizer}s that should be called to configure the
+	 * {@link io.rsocket.core.RSocketServer} while building the server. Calling this
+	 * method will replace any existing customizers.
+	 * @param rSocketServerCustomizers customizers to apply before the server starts
+	 * @since 2.2.7
 	 */
-	public void setServerCustomizers(Collection<? extends ServerRSocketFactoryCustomizer> serverCustomizers) {
-		Assert.notNull(serverCustomizers, "ServerCustomizers must not be null");
-		this.serverCustomizers = new ArrayList<>(serverCustomizers);
+	public void setRSocketServerCustomizers(Collection<? extends RSocketServerCustomizer> rSocketServerCustomizers) {
+		Assert.notNull(rSocketServerCustomizers, "RSocketServerCustomizers must not be null");
+		this.rSocketServerCustomizers = new ArrayList<>(rSocketServerCustomizers);
 	}
 
 	/**
-	 * Add {@link ServerRSocketFactoryCustomizer}s that should applied while building the
-	 * server.
-	 * @param serverCustomizers the customizers to add
+	 * Add {@link RSocketServerCustomizer}s that should be called to configure the
+	 * {@link io.rsocket.core.RSocketServer}.
+	 * @param rSocketServerCustomizers customizers to apply before the server starts
+	 * @since 2.2.7
 	 */
-	public void addServerCustomizers(ServerRSocketFactoryCustomizer... serverCustomizers) {
-		Assert.notNull(serverCustomizers, "ServerCustomizer must not be null");
-		this.serverCustomizers.addAll(Arrays.asList(serverCustomizers));
+	public void addRSocketServerCustomizers(RSocketServerCustomizer... rSocketServerCustomizers) {
+		Assert.notNull(rSocketServerCustomizers, "RSocketServerCustomizers must not be null");
+		this.rSocketServerCustomizers.addAll(Arrays.asList(rSocketServerCustomizers));
 	}
 
 	/**
@@ -117,35 +119,35 @@ public class NettyRSocketServerFactory implements RSocketServerFactory, Configur
 	@Override
 	public NettyRSocketServer create(SocketAcceptor socketAcceptor) {
 		ServerTransport<CloseableChannel> transport = createTransport();
-		RSocketFactory.ServerRSocketFactory factory = RSocketFactory.receive();
-		for (ServerRSocketFactoryCustomizer customizer : this.serverCustomizers) {
-			factory = customizer.apply(factory);
-		}
-		Mono<CloseableChannel> starter = factory.acceptor(socketAcceptor).transport(transport).start();
+		io.rsocket.core.RSocketServer server = io.rsocket.core.RSocketServer.create(socketAcceptor);
+		this.rSocketServerCustomizers.forEach((customizer) -> customizer.customize(server));
+		Mono<CloseableChannel> starter = server.bind(transport);
 		return new NettyRSocketServer(starter, this.lifecycleTimeout);
 	}
 
 	private ServerTransport<CloseableChannel> createTransport() {
-		if (this.transport == RSocketServer.TRANSPORT.WEBSOCKET) {
-			if (this.resourceFactory != null) {
-				HttpServer httpServer = HttpServer.create()
-						.tcpConfiguration((tcpServer) -> tcpServer.runOn(this.resourceFactory.getLoopResources()));
-				return WebsocketServerTransport.create(httpServer);
-			}
-			else {
-				return WebsocketServerTransport.create(getListenAddress());
-			}
+		if (this.transport == RSocketServer.Transport.WEBSOCKET) {
+			return createWebSocketTransport();
 		}
-		else {
-			if (this.resourceFactory != null) {
-				TcpServer tcpServer = TcpServer.create().runOn(this.resourceFactory.getLoopResources())
-						.addressSupplier(this::getListenAddress);
-				return TcpServerTransport.create(tcpServer);
-			}
-			else {
-				return TcpServerTransport.create(getListenAddress());
-			}
+		return createTcpTransport();
+	}
+
+	private ServerTransport<CloseableChannel> createWebSocketTransport() {
+		if (this.resourceFactory != null) {
+			HttpServer httpServer = HttpServer.create().runOn(this.resourceFactory.getLoopResources())
+					.bindAddress(this::getListenAddress);
+			return WebsocketServerTransport.create(httpServer);
 		}
+		return WebsocketServerTransport.create(getListenAddress());
+	}
+
+	private ServerTransport<CloseableChannel> createTcpTransport() {
+		if (this.resourceFactory != null) {
+			TcpServer tcpServer = TcpServer.create().runOn(this.resourceFactory.getLoopResources())
+					.bindAddress(this::getListenAddress);
+			return TcpServerTransport.create(tcpServer);
+		}
+		return TcpServerTransport.create(getListenAddress());
 	}
 
 	private InetSocketAddress getListenAddress() {

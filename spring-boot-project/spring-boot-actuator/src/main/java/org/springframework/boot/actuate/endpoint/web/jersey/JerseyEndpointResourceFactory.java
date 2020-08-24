@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ import reactor.core.publisher.Mono;
 import org.springframework.boot.actuate.endpoint.InvalidEndpointRequestException;
 import org.springframework.boot.actuate.endpoint.InvocationContext;
 import org.springframework.boot.actuate.endpoint.SecurityContext;
+import org.springframework.boot.actuate.endpoint.http.ApiVersion;
 import org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver;
 import org.springframework.boot.actuate.endpoint.web.EndpointMapping;
 import org.springframework.boot.actuate.endpoint.web.EndpointMediaTypes;
@@ -150,8 +151,10 @@ public class JerseyEndpointResourceFactory {
 			arguments.putAll(extractPathParameters(data));
 			arguments.putAll(extractQueryParameters(data));
 			try {
-				Object response = this.operation
-						.invoke(new InvocationContext(new JerseySecurityContext(data.getSecurityContext()), arguments));
+				ApiVersion apiVersion = ApiVersion.fromHttpHeaders(data.getHeaders());
+				JerseySecurityContext securityContext = new JerseySecurityContext(data.getSecurityContext());
+				InvocationContext invocationContext = new InvocationContext(apiVersion, securityContext, arguments);
+				Object response = this.operation.invoke(invocationContext);
 				return convertToJaxRsResponse(response, data.getRequest().getMethod());
 			}
 			catch (InvalidEndpointRequestException ex) {
@@ -161,11 +164,8 @@ public class JerseyEndpointResourceFactory {
 
 		@SuppressWarnings("unchecked")
 		private Map<String, Object> extractBodyArguments(ContainerRequestContext data) {
-			Map<?, ?> entity = ((ContainerRequest) data).readEntity(Map.class);
-			if (entity == null) {
-				return Collections.emptyMap();
-			}
-			return (Map<String, Object>) entity;
+			Map<String, Object> entity = ((ContainerRequest) data).readEntity(Map.class);
+			return (entity != null) ? entity : Collections.emptyMap();
 		}
 
 		private Map<String, Object> extractPathParameters(ContainerRequestContext requestContext) {

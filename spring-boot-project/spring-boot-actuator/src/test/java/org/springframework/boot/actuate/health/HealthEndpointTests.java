@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.boot.actuate.health;
 
+import java.util.Collections;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -23,25 +24,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.actuate.health.HealthEndpointSupport.HealthResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.Mockito.mock;
 
 /**
  * Tests for {@link HealthEndpoint}.
  *
  * @author Phillip Webb
+ * @author Scott Frederick
  */
 class HealthEndpointTests
 		extends HealthEndpointSupportTests<HealthContributorRegistry, HealthContributor, HealthComponent> {
-
-	@Test
-	@SuppressWarnings("deprecation")
-	void createWhenUsingDeprecatedConstructorThrowsException() {
-		HealthIndicator healthIndicator = mock(HealthIndicator.class);
-		assertThatIllegalStateException().isThrownBy(() -> new HealthEndpoint(healthIndicator))
-				.withMessage("Unable to create class org.springframework.boot.actuate.health.HealthEndpoint "
-						+ "using deprecated constructor");
-	}
 
 	@Test
 	void healthReturnsSystemHealth() {
@@ -49,6 +41,15 @@ class HealthEndpointTests
 		HealthComponent health = create(this.registry, this.groups).health();
 		assertThat(health.getStatus()).isEqualTo(Status.UP);
 		assertThat(health).isInstanceOf(SystemHealth.class);
+	}
+
+	@Test
+	void healthWithNoContributorReturnsUp() {
+		assertThat(this.registry).isEmpty();
+		HealthComponent health = create(this.registry,
+				HealthEndpointGroups.of(mock(HealthEndpointGroup.class), Collections.emptyMap())).health();
+		assertThat(health.getStatus()).isEqualTo(Status.UP);
+		assertThat(health).isInstanceOf(Health.class);
 	}
 
 	@Test

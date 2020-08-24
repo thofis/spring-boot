@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.boot.test.context;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -40,6 +41,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.io.support.SpringFactoriesLoader;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.ContextConfigurationAttributes;
+import org.springframework.test.context.ContextCustomizer;
 import org.springframework.test.context.ContextHierarchy;
 import org.springframework.test.context.ContextLoader;
 import org.springframework.test.context.MergedContextConfiguration;
@@ -132,8 +134,7 @@ public class SpringBootTestContextBootstrapper extends DefaultTestContextBootstr
 	}
 
 	private void addConfigAttributesClasses(ContextConfigurationAttributes configAttributes, Class<?>[] classes) {
-		List<Class<?>> combined = new ArrayList<>();
-		combined.addAll(Arrays.asList(classes));
+		List<Class<?>> combined = new ArrayList<>(Arrays.asList(classes));
 		if (configAttributes.getClasses() != null) {
 			combined.addAll(Arrays.asList(configAttributes.getClasses()));
 		}
@@ -356,11 +357,12 @@ public class SpringBootTestContextBootstrapper extends DefaultTestContextBootstr
 	 */
 	protected final MergedContextConfiguration createModifiedConfig(MergedContextConfiguration mergedConfig,
 			Class<?>[] classes, String[] propertySourceProperties) {
+		Set<ContextCustomizer> contextCustomizers = new LinkedHashSet<>(mergedConfig.getContextCustomizers());
+		contextCustomizers.add(new SpringBootTestArgs(mergedConfig.getTestClass()));
 		return new MergedContextConfiguration(mergedConfig.getTestClass(), mergedConfig.getLocations(), classes,
 				mergedConfig.getContextInitializerClasses(), mergedConfig.getActiveProfiles(),
-				mergedConfig.getPropertySourceLocations(), propertySourceProperties,
-				mergedConfig.getContextCustomizers(), mergedConfig.getContextLoader(),
-				getCacheAwareContextLoaderDelegate(), mergedConfig.getParent());
+				mergedConfig.getPropertySourceLocations(), propertySourceProperties, contextCustomizers,
+				mergedConfig.getContextLoader(), getCacheAwareContextLoaderDelegate(), mergedConfig.getParent());
 	}
 
 }

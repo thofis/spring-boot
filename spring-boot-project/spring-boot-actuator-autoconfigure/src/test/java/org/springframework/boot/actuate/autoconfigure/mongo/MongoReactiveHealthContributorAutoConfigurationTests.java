@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class MongoReactiveHealthContributorAutoConfigurationTests {
 
-	private ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
 			.withConfiguration(AutoConfigurations.of(MongoAutoConfiguration.class, MongoDataAutoConfiguration.class,
 					MongoReactiveAutoConfiguration.class, MongoReactiveDataAutoConfiguration.class,
 					MongoReactiveHealthContributorAutoConfiguration.class, HealthContributorAutoConfiguration.class));
@@ -45,14 +45,21 @@ class MongoReactiveHealthContributorAutoConfigurationTests {
 	@Test
 	void runShouldCreateIndicator() {
 		this.contextRunner.run((context) -> assertThat(context).hasSingleBean(MongoReactiveHealthIndicator.class)
-				.doesNotHaveBean(MongoHealthIndicator.class));
+				.hasBean("mongoHealthContributor"));
+	}
+
+	@Test
+	void runWithRegularIndicatorShouldOnlyCreateReactiveIndicator() {
+		this.contextRunner.withConfiguration(AutoConfigurations.of(MongoHealthContributorAutoConfiguration.class))
+				.run((context) -> assertThat(context).hasSingleBean(MongoReactiveHealthIndicator.class)
+						.hasBean("mongoHealthContributor").doesNotHaveBean(MongoHealthIndicator.class));
 	}
 
 	@Test
 	void runWhenDisabledShouldNotCreateIndicator() {
 		this.contextRunner.withPropertyValues("management.health.mongo.enabled:false")
 				.run((context) -> assertThat(context).doesNotHaveBean(MongoReactiveHealthIndicator.class)
-						.doesNotHaveBean(MongoHealthIndicator.class));
+						.doesNotHaveBean("mongoHealthContributor"));
 	}
 
 }

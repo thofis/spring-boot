@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ import org.springframework.util.StringUtils;
  */
 public final class ConditionMessage {
 
-	private String message;
+	private final String message;
 
 	private ConditionMessage() {
 		this(null);
@@ -290,7 +290,7 @@ public final class ConditionMessage {
 		}
 
 		/**
-		 * Indicates the reason. For example {@code reason("running Linux")} results in
+		 * Indicates the reason. For example {@code because("running Linux")} results in
 		 * the message "running Linux".
 		 * @param reason the reason for the message
 		 * @return a built {@link ConditionMessage}
@@ -300,7 +300,7 @@ public final class ConditionMessage {
 				return new ConditionMessage(ConditionMessage.this, this.condition);
 			}
 			return new ConditionMessage(ConditionMessage.this,
-					this.condition + (StringUtils.isEmpty(this.condition) ? "" : " ") + reason);
+					StringUtils.isEmpty(this.condition) ? reason : this.condition + " " + reason);
 		}
 
 	}
@@ -381,7 +381,8 @@ public final class ConditionMessage {
 			Assert.notNull(style, "Style must not be null");
 			StringBuilder message = new StringBuilder(this.reason);
 			items = style.applyTo(items);
-			if ((this.condition == null || items.size() <= 1) && StringUtils.hasLength(this.singular)) {
+			if ((this.condition == null || items == null || items.size() <= 1)
+					&& StringUtils.hasLength(this.singular)) {
 				message.append(" ").append(this.singular);
 			}
 			else if (StringUtils.hasLength(this.plural)) {
@@ -405,6 +406,11 @@ public final class ConditionMessage {
 			protected Object applyToItem(Object item) {
 				return item;
 			}
+
+			@Override
+			public Collection<?> applyTo(Collection<?> items) {
+				return items;
+			}
 		},
 
 		QUOTE {
@@ -415,7 +421,10 @@ public final class ConditionMessage {
 		};
 
 		public Collection<?> applyTo(Collection<?> items) {
-			List<Object> result = new ArrayList<>();
+			if (items == null) {
+				return null;
+			}
+			List<Object> result = new ArrayList<>(items.size());
 			for (Object item : items) {
 				result.add(applyToItem(item));
 			}

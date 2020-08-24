@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.boot.actuate.autoconfigure.health;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -38,9 +39,9 @@ public abstract class HealthProperties {
 	private final Status status = new Status();
 
 	/**
-	 * When to show full health details.
+	 * When to show components. If not specified the 'show-details' setting will be used.
 	 */
-	private ShowDetails showDetails = ShowDetails.NEVER;
+	private Show showComponents;
 
 	/**
 	 * Roles used to determine whether or not a user is authorized to be shown details.
@@ -52,13 +53,15 @@ public abstract class HealthProperties {
 		return this.status;
 	}
 
-	public ShowDetails getShowDetails() {
-		return this.showDetails;
+	public Show getShowComponents() {
+		return this.showComponents;
 	}
 
-	public void setShowDetails(ShowDetails showDetails) {
-		this.showDetails = showDetails;
+	public void setShowComponents(Show showComponents) {
+		this.showComponents = showComponents;
 	}
+
+	public abstract Show getShowDetails();
 
 	public Set<String> getRoles() {
 		return this.roles;
@@ -76,7 +79,7 @@ public abstract class HealthProperties {
 		/**
 		 * Comma-separated list of health statuses in order of severity.
 		 */
-		private List<String> order = null;
+		private List<String> order = new ArrayList<>();
 
 		/**
 		 * Mapping of health statuses to HTTP status codes. By default, registered health
@@ -101,23 +104,23 @@ public abstract class HealthProperties {
 	}
 
 	/**
-	 * Options for showing details in responses from the {@link HealthEndpoint} web
+	 * Options for showing items in responses from the {@link HealthEndpoint} web
 	 * extensions.
 	 */
-	public enum ShowDetails {
+	public enum Show {
 
 		/**
-		 * Never show details in the response.
+		 * Never show the item in the response.
 		 */
 		NEVER,
 
 		/**
-		 * Show details in the response when accessed by an authorized user.
+		 * Show the item in the response when accessed by an authorized user.
 		 */
 		WHEN_AUTHORIZED,
 
 		/**
-		 * Always show details in the response.
+		 * Always show the item in the response.
 		 */
 		ALWAYS
 

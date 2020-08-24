@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import org.springframework.boot.logging.LoggingInitializationContext;
 import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.logging.LoggingSystemProperties;
 import org.springframework.boot.logging.Slf4JLoggingSystem;
+import org.springframework.core.SpringProperties;
 import org.springframework.core.env.Environment;
 import org.springframework.util.Assert;
 import org.springframework.util.ResourceUtils;
@@ -64,6 +65,9 @@ import org.springframework.util.StringUtils;
  * @since 1.0.0
  */
 public class LogbackLoggingSystem extends Slf4JLoggingSystem {
+
+	// Static final field to facilitate code removal by Graal
+	private static final boolean XML_ENABLED = !SpringProperties.getFlag("spring.xml.ignore");
 
 	private static final String CONFIGURATION_FILE_PROPERTY = "logback.configurationFile";
 
@@ -139,6 +143,8 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 				environment.resolvePlaceholders("${logging.pattern.level:${LOG_LEVEL_PATTERN:%5p}}"));
 		context.putProperty(LoggingSystemProperties.LOG_DATEFORMAT_PATTERN, environment.resolvePlaceholders(
 				"${logging.pattern.dateformat:${LOG_DATEFORMAT_PATTERN:yyyy-MM-dd HH:mm:ss.SSS}}"));
+		context.putProperty(LoggingSystemProperties.ROLLING_FILE_NAME_PATTERN, environment
+				.resolvePlaceholders("${logging.pattern.rolling-file-name:${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz}"));
 		new DefaultLogbackConfiguration(initializationContext, logFile).apply(configurator);
 		context.setPackagingDataEnabled(true);
 	}
@@ -170,7 +176,7 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 
 	private void configureByResourceUrl(LoggingInitializationContext initializationContext, LoggerContext loggerContext,
 			URL url) throws JoranException {
-		if (url.toString().endsWith("xml")) {
+		if (XML_ENABLED && url.toString().endsWith("xml")) {
 			JoranConfigurator configurator = new SpringBootJoranConfigurator(initializationContext);
 			configurator.setContext(loggerContext);
 			configurator.doConfigure(url);
@@ -232,7 +238,16 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 
 	@Override
 	public LoggerConfiguration getLoggerConfiguration(String loggerName) {
-		return getLoggerConfiguration(getLogger(loggerName));
+		String name = getLoggerName(loggerName);
+		LoggerContext loggerContext = getLoggerContext();
+		return getLoggerConfiguration(loggerContext.exists(name));
+	}
+
+	private String getLoggerName(String name) {
+		if (!StringUtils.hasLength(name) || Logger.ROOT_LOGGER_NAME.equals(name)) {
+			return ROOT_LOGGER_NAME;
+		}
+		return name;
 	}
 
 	private LoggerConfiguration getLoggerConfiguration(ch.qos.logback.classic.Logger logger) {
@@ -241,10 +256,7 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 		}
 		LogLevel level = LEVELS.convertNativeToSystem(logger.getLevel());
 		LogLevel effectiveLevel = LEVELS.convertNativeToSystem(logger.getEffectiveLevel());
-		String name = logger.getName();
-		if (!StringUtils.hasLength(name) || Logger.ROOT_LOGGER_NAME.equals(name)) {
-			name = ROOT_LOGGER_NAME;
-		}
+		String name = getLoggerName(logger.getName());
 		return new LoggerConfiguration(name, level, effectiveLevel);
 	}
 
@@ -268,16 +280,13 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 
 	private ch.qos.logback.classic.Logger getLogger(String name) {
 		LoggerContext factory = getLoggerContext();
-		if (StringUtils.isEmpty(name) || ROOT_LOGGER_NAME.equals(name)) {
-			name = Logger.ROOT_LOGGER_NAME;
-		}
-		return factory.getLogger(name);
+		return factory.getLogger(getLoggerName(name));
 	}
 
 	private LoggerContext getLoggerContext() {
 		ILoggerFactory factory = StaticLoggerBinder.getSingleton().getLoggerFactory();
 		Assert.isInstanceOf(LoggerContext.class, factory,
-				String.format(
+				() -> String.format(
 						"LoggerFactory is not a Logback LoggerContext but Logback is on "
 								+ "the classpath. Either remove Logback or the competing "
 								+ "implementation (%s loaded from %s). If you are using "

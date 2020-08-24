@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@ import static org.mockito.Mockito.verify;
  * @author Madhura Bhave
  * @author Vedran Pavic
  * @author Robert Thornton
+ * @author Eddú Meléndez
  */
 @ExtendWith(OutputCaptureExtension.class)
 class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
@@ -110,6 +111,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 		this.loggingSystem.initialize(this.initializationContext, null, getLogFile(null, tmpDir()));
 		this.logger.info("Hello world");
 		File file = new File(tmpDir() + "/spring.log");
+		assertThat(output).doesNotContain("LOGBACK:");
 		assertThat(output).contains("Hello world").doesNotContain("Hidden");
 		assertThat(getLineWithText(output, "Hello world")).contains("INFO");
 		assertThat(file.exists()).isTrue();
@@ -203,6 +205,14 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 		LoggerConfiguration configuration = this.loggingSystem.getLoggerConfiguration(getClass().getName());
 		assertThat(configuration)
 				.isEqualTo(new LoggerConfiguration(getClass().getName(), LogLevel.DEBUG, LogLevel.DEBUG));
+	}
+
+	@Test
+	void getLoggingConfigurationForLoggerThatDoesNotExistShouldReturnNull() {
+		this.loggingSystem.beforeInitialize();
+		this.loggingSystem.initialize(this.initializationContext, null, null);
+		LoggerConfiguration configuration = this.loggingSystem.getLoggerConfiguration("doesnotexist");
+		assertThat(configuration).isNull();
 	}
 
 	@Test
@@ -535,6 +545,20 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 		finally {
 			System.clearProperty("logback.debug");
 		}
+	}
+
+	@Test
+	void testRollingFileNameProperty() {
+		MockEnvironment environment = new MockEnvironment();
+		String rollingFile = "my.log.%d{yyyyMMdd}.%i.gz";
+		environment.setProperty("logging.pattern.rolling-file-name", rollingFile);
+		LoggingInitializationContext loggingInitializationContext = new LoggingInitializationContext(environment);
+		File file = new File(tmpDir(), "my.log");
+		LogFile logFile = getLogFile(file.getPath(), null);
+		this.loggingSystem.initialize(loggingInitializationContext, null, logFile);
+		this.logger.info("Hello world");
+		assertThat(getLineWithText(file, "Hello world")).contains("INFO");
+		assertThat(getRollingPolicy().getFileNamePattern()).isEqualTo(rollingFile);
 	}
 
 	private static Logger getRootLogger() {
